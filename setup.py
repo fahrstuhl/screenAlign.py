@@ -5,4 +5,7 @@ setup(name='screenAlign',
         version='1.0',
         py_modules=['screenAlign'],
         packages=[''],
+        author='Fahrstuhl',
+        author_email='fahrstuhl@mailbox.tu-berlin.de',
+        url='https://github.com/fahrstuhl/screenAlign.py',
         )
