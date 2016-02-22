@@ -1,5 +1,5 @@
 # screenAlign.py
-Simple script to automate multi-monitor alignment with xrandr, because xrandr doesn't support aligning two side-by-side screens at the bottom.
+Simple script to automate multi-monitor alignment with xrandr, because xrandr doesn't support aligning two side-by-side monitors at the bottom.
 
 Example usage:
 
