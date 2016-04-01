@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from distutils.core import setup
 setup(name='screenAlign',
-        version='1.0',
+        version='1.1',
         py_modules=['screenAlign'],
         author='Fahrstuhl',
         author_email='fahrstuhl@mailbox.tu-berlin.de',
