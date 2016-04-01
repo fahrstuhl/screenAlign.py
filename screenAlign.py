@@ -103,7 +103,7 @@ class Layout(object):
         self.setAlignment(self.leftOf, self.topAlign)
         self.setLayout()
 
-    def setTopMiddle(self):
+    def setAboveMiddle(self):
         self.setAlignment(self.middleAlign, self.aboveOf)
         self.setLayout()
 
