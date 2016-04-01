@@ -46,12 +46,25 @@ class Layout(object):
     def topAlign(self, resolution):
         return 0
 
+    def aboveOf(self, resolution):
+        verticalAlignment = -int(resolution['y'])
+        return verticalAlignment
+
+    def belowOf(self, resolution):
+        verticalAlignment = int(self.defaultResolution['y'])
+        return verticalAlignment
+
     def rightOf(self, resolution):
         horizontalAlignment = int(self.defaultResolution['x'])
         return horizontalAlignment
 
     def leftOf(self, resolution):
         horizontalAlignment = -int(resolution['x'])
+        return horizontalAlignment
+
+    def middleAlign(self, resolution):
+        horizontalAlignment = int(self.defaultResolution['x']) - int(resolution['x']) 
+        horizontalAlignment //= 2
         return horizontalAlignment
 
     def coordinatesToString(self, coordinates):
@@ -90,6 +103,14 @@ class Layout(object):
         self.setAlignment(self.leftOf, self.topAlign)
         self.setLayout()
 
+    def setTopMiddle(self):
+        self.setAlignment(self.middleAlign, self.aboveOf)
+        self.setLayout()
+
+    def setBelowMiddle(self):
+        self.setAlignment(self.middleAlign, self.belowOf)
+        self.setLayout()
+
 if __name__ == "__main__":
     l = Layout('LVDS1')
-    l.setLeftOfTop()
+    l.setBelowMiddle()
