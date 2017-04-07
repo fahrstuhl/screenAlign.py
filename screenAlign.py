@@ -8,7 +8,8 @@ class Layout(object):
     def __init__(self, defaultMonitor):
         self.xrandr = 'xrandr'
         self.xrandrOutput = self.getxrandrOutput()
-        self.resolutionRegex = re.compile("(?P<preferredResolution>[0-9]{3,4}x[0-9]{3,4})\s+?.*?\+")
+        self.resolutionRegex = re.compile("(?P<resolution>[0-9]{3,4}x[0-9]{3,4})\s+?.*?")
+        self.preferredResolutionRegex = re.compile("(?P<preferredResolution>[0-9]{3,4}x[0-9]{3,4})\s+?.*?\+")
         self.outputRegex = re.compile("(?P<outputName>\S*)\s+connected")
         self.defaultMonitor = defaultMonitor
         self.defaultResolution = self.findPreferredResolutionForMonitor(self.defaultMonitor)
@@ -30,8 +31,12 @@ class Layout(object):
             outputName = output.group('outputName')
             if outputName == monitorName:
                 substring = self.xrandrOutput[output.end():]
-                resolution = self.resolutionRegex.search(substring).group('preferredResolution')
-                return self.makeResolutionDict(resolution)
+                searchForPreferred = self.preferredResolutionRegex.search(substring)
+                if searchForPreferred is not None:
+                    preferredResolution = searchForPreferred.group('preferredResolution')
+                else:
+                    preferredResolution = self.resolutionRegex.search(substring).group('resolution')
+                return self.makeResolutionDict(preferredResolution)
 
     def findFirstAdditionalMonitor(self):
         monitors = self.findConnectedMonitors()
