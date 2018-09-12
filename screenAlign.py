@@ -8,8 +8,7 @@ class Layout(object):
     def __init__(self, defaultMonitor):
         self.xrandr = 'xrandr'
         self.xrandrOutput = self.getxrandrOutput()
-        self.resolutionRegex = re.compile("(?P<resolution>[0-9]{3,4}x[0-9]{3,4})\s+?.*?")
-        self.preferredResolutionRegex = re.compile("(?P<preferredResolution>[0-9]{3,4}x[0-9]{3,4})\s+?.*?\+")
+        self.resolutionRegex = re.compile("(?P<resolution>\d{3,4}x\d{3,4})\s+(?P<framerate>\d{2,3}\.\d{2})\s?(?P<active>\*?)(?P<preferred>\+?)")
         self.outputRegex = re.compile("(?P<outputName>\S*)\s+connected")
         self.defaultMonitor = defaultMonitor
         self.defaultResolution = self.findPreferredResolutionForMonitor(self.defaultMonitor)
@@ -23,20 +22,50 @@ class Layout(object):
         split = resolutionString.split('x')
         return {'x': split[0], 'y': split[1]}
 
-    def findConnectedMonitors(self):
-        return self.outputRegex.findall(self.xrandrOutput)
+    def findConnectedMonitors(self, outputs = None):
+        if outputs is None:
+            outputs = self.findConnectedMonitorMatchObjects()
+        outputNames = []
+        for output in outputs:
+            # if output.group("connection") == "connected":
+            outputNames.append(output.group("outputName"))
+        return outputNames
+
+    def findConnectedMonitorMatchObjects(self):
+        outputs = [x for x in self.outputRegex.finditer(self.xrandrOutput)]
+        return outputs
+
+    def findActiveMonitors(self):
+        outputs = self.findConnectedMonitorMatchObjects()
+        activeMonitors = []
+        for output in outputs:
+            substring = self.cutOutputSubstring(output, self.xrandrOutput)
+            for resolution in self.resolutionRegex.finditer(substring):
+                if resolution.group("active") == '*':
+                    activeMonitors.append(output.group('outputName'))
+        return activeMonitors
 
     def findPreferredResolutionForMonitor(self, monitorName):
-        for output in self.outputRegex.finditer(self.xrandrOutput):
+        for output in self.findConnectedMonitorMatchObjects():
             outputName = output.group('outputName')
             if outputName == monitorName:
-                substring = self.xrandrOutput[output.end():]
-                searchForPreferred = self.preferredResolutionRegex.search(substring)
-                if searchForPreferred is not None:
-                    preferredResolution = searchForPreferred.group('preferredResolution')
-                else:
-                    preferredResolution = self.resolutionRegex.search(substring).group('resolution')
+                substring = self.cutOutputSubstring(output, self.xrandrOutput)
+                resolutions = [x for x in self.resolutionRegex.finditer(substring)]
+                for resolution in resolutions:
+                    if resolution.group('preferred') != '':
+                        preferredResolution = resolution.group('resolution')
+                        return self.makeResolutionDict(preferredResolution)
+                preferredResolution = resolutions[0].group('resolution')
                 return self.makeResolutionDict(preferredResolution)
+
+    def cutOutputSubstring(self, currentOutput, substring):
+        nextOutput = self.outputRegex.search(substring[currentOutput.end():])
+        if nextOutput is not None:
+            end = nextOutput.end()
+        else:
+            end = -1
+        substring = substring[currentOutput.end():end]
+        return substring
 
     def findBiggestCommonResolutionForMonitors(self, monitors):
         monitorResolutions = self.findResolutionsForMonitors(monitors)
@@ -51,22 +80,13 @@ class Layout(object):
     def findResolutionsForMonitors(self, monitors):
         monitorResolutions = dict()
         resolution = set()
-        i = 0
-        outputs = [x for x in self.outputRegex.finditer(self.xrandrOutput)]
-        for i in range(len(outputs)):
-            output = outputs[i]
-            try:
-                nextOutput = outputs[i+1]
-                nextOutputStart = nextOutput.start()
-            except IndexError:
-                nextOutputStart = -1
+        for output in self.findConnectedMonitorMatchObjects():
             outputName = output.group('outputName')
             for monitor in monitors:
                 if monitor == outputName:
-                    substring = self.xrandrOutput[output.end():nextOutputStart]
-                    monitorResolutions[outputName] = set(self.resolutionRegex.findall(substring))
+                    substring = self.cutOutputSubstring(output, self.xrandrOutput)
+                    monitorResolutions[outputName] = {x.group('resolution') for x in self.resolutionRegex.finditer(substring)}
         return monitorResolutions
-
 
     def calculateArea(self, resolutionString):
         split = resolutionString.split('x')
@@ -131,14 +151,9 @@ class Layout(object):
                 resolutionArgument = ['--mode', resolution]
             else:
                 resolutionArgument = ['--auto']
-            if position is not None:
-                positionArgument = ['--pos', position]
-            else:
-                positionArgument = []
-            if off:
-                offArgument = ['--off']
-            else:
-                offArgument = []
+            if position is None:
+                position = '0x0'
+            positionArgument = ['--pos', position]
             arguments = outputArgument + positionArgument + resolutionArgument
         return arguments
 
@@ -183,6 +198,27 @@ class Layout(object):
                 ]
         self.setCommand(arguments)
         self.setLayout()
+
+    def internal(self):
+        arguments = [
+                self.makeArgumentList(self.defaultMonitor)
+                ]
+        for monitor in self.findConnectedMonitors():
+            if monitor != self.defaultMonitor:
+                arguments.append(self.makeArgumentList(monitor, off=True))
+        self.setCommand(arguments)
+        self.setLayout()
+
+    def toggle(self):
+        additionalMonitor = self.findFirstAdditionalMonitor()
+        activeMonitors = self.findActiveMonitors()
+        if self.defaultMonitor in activeMonitors:
+            if additionalMonitor in activeMonitors:
+                self.external()
+            else:
+                self.clone()
+        else:
+            self.internal()
 
 if __name__ == "__main__":
     l = Layout('LVDS1')
