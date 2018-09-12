@@ -38,6 +38,40 @@ class Layout(object):
                     preferredResolution = self.resolutionRegex.search(substring).group('resolution')
                 return self.makeResolutionDict(preferredResolution)
 
+    def findBiggestCommonResolutionForMonitors(self, monitors):
+        monitorResolutions = self.findResolutionsForMonitors(monitors)
+        union = set()
+        for resolutions in monitorResolutions.values():
+            union |= resolutions
+        for resolutions in monitorResolutions.values():
+            union &= resolutions
+        resolution = max(union, key=self.calculateArea)
+        return resolution
+
+    def findResolutionsForMonitors(self, monitors):
+        monitorResolutions = dict()
+        resolution = set()
+        i = 0
+        outputs = [x for x in self.outputRegex.finditer(self.xrandrOutput)]
+        for i in range(len(outputs)):
+            output = outputs[i]
+            try:
+                nextOutput = outputs[i+1]
+                nextOutputStart = nextOutput.start()
+            except IndexError:
+                nextOutputStart = -1
+            outputName = output.group('outputName')
+            for monitor in monitors:
+                if monitor == outputName:
+                    substring = self.xrandrOutput[output.end():nextOutputStart]
+                    monitorResolutions[outputName] = set(self.resolutionRegex.findall(substring))
+        return monitorResolutions
+
+
+    def calculateArea(self, resolutionString):
+        split = resolutionString.split('x')
+        return int(split[0]) * int(split[1])
+
     def findFirstAdditionalMonitor(self):
         monitors = self.findConnectedMonitors()
         monitors.remove(self.defaultMonitor)
@@ -80,17 +114,33 @@ class Layout(object):
         additionalResolution = self.findPreferredResolutionForMonitor(additionalMonitor)
         additionalPos = {'x': horizontalAlignment(additionalResolution), 'y': verticalAlignment(additionalResolution)}
         additionalPos = self.coordinatesToString(additionalPos)
-        self.setCommand(additionalMonitor, additionalPos)
+        arguments = [self.makeArgumentList(self.defaultMonitor), self.makeArgumentList(additionalMonitor, additionalPos)]
+        self.setCommand(arguments)
 
-    def setCommand(self, outputName, position):
-        self.command = [self.xrandr,
-                '--output', self.defaultMonitor,
-                '--pos', '0x0',
-                '--auto',
-                '--output', outputName,
-                '--auto',
-                '--pos', position,
-                ]
+    def setCommand(self, arguments):
+        self.command = [self.xrandr]
+        for argument in arguments:
+            self.command.extend(argument)
+
+    def makeArgumentList(self, outputName, position=None, resolution=None, off=False):
+        outputArgument = ['--output', outputName]
+        if off:
+            arguments = outputArgument + ['--off']
+        else:
+            if resolution is not None:
+                resolutionArgument = ['--mode', resolution]
+            else:
+                resolutionArgument = ['--auto']
+            if position is not None:
+                positionArgument = ['--pos', position]
+            else:
+                positionArgument = []
+            if off:
+                offArgument = ['--off']
+            else:
+                offArgument = []
+            arguments = outputArgument + positionArgument + resolutionArgument
+        return arguments
 
     def setLayout(self):
         print(self.command)
@@ -114,6 +164,24 @@ class Layout(object):
 
     def setBelowMiddle(self):
         self.setAlignment(self.middleAlign, self.belowOf)
+        self.setLayout()
+
+    def clone(self):
+        monitors = self.findConnectedMonitors()
+        resolution = self.findBiggestCommonResolutionForMonitors(monitors)
+        arguments = []
+        for monitor in monitors:
+            arguments.append(self.makeArgumentList(monitor, resolution=resolution))
+        self.setCommand(arguments)
+        self.setLayout()
+
+    def external(self):
+        additionalMonitor = self.findFirstAdditionalMonitor()
+        arguments = [
+                self.makeArgumentList(self.defaultMonitor, off=True),
+                self.makeArgumentList(additionalMonitor)
+                ]
+        self.setCommand(arguments)
         self.setLayout()
 
 if __name__ == "__main__":
