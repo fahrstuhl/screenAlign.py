@@ -210,14 +210,17 @@ class Layout(object):
         self.setLayout()
 
     def toggle(self):
-        additionalMonitor = self.findFirstAdditionalMonitor()
-        activeMonitors = self.findActiveMonitors()
-        if self.defaultMonitor in activeMonitors:
-            if additionalMonitor in activeMonitors:
-                self.external()
+        try:
+            additionalMonitor = self.findFirstAdditionalMonitor()
+            activeMonitors = self.findActiveMonitors()
+            if self.defaultMonitor in activeMonitors:
+                if additionalMonitor in activeMonitors:
+                    self.external()
+                else:
+                    self.clone()
             else:
-                self.clone()
-        else:
+                self.internal()
+        except IndexError:
             self.internal()
 
 if __name__ == "__main__":
