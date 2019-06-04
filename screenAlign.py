@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.5
 # -*- coding: utf-8 -*-
 import re
+import logging
 from subprocess import run, PIPE
 
 class Layout(object):
@@ -48,9 +49,12 @@ class Layout(object):
     def findPreferredResolutionForMonitor(self, monitorName):
         for output in self.findConnectedMonitorMatchObjects():
             outputName = output.group('outputName')
+            logging.debug("Searching for {}, found {}.".format(monitorName, outputName))
             if outputName == monitorName:
                 substring = self.cutOutputSubstring(output, self.xrandrOutput)
+                logging.debug("Substring for {}:\n{}".format(outputName, substring))
                 resolutions = [x for x in self.resolutionRegex.finditer(substring)]
+                logging.debug("Resolutions for {}:\n{}".format(outputName, resolutions))
                 for resolution in resolutions:
                     if resolution.group('preferred') != '':
                         preferredResolution = resolution.group('resolution')
@@ -59,12 +63,15 @@ class Layout(object):
                 return self.makeResolutionDict(preferredResolution)
 
     def cutOutputSubstring(self, currentOutput, substring):
+        logging.debug("Searching for {} in substring:\n{}".format(currentOutput, substring))
         nextOutput = self.outputRegex.search(substring[currentOutput.end():])
         if nextOutput is not None:
-            end = nextOutput.end()
+            end = currentOutput.end() + nextOutput.start()
+            logging.debug("Found next output '{}', starting at {}".format(nextOutput, end))
         else:
             end = -1
         substring = substring[currentOutput.end():end]
+        logging.debug("Resulting substring:\n{}".format(substring))
         return substring
 
     def findBiggestCommonResolutionForMonitors(self, monitors):
